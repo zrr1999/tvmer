@@ -32,7 +32,6 @@ def gen_library(mod, params, target="llvm", path: str = ".tvmer/lib/compiled.so"
 
 def infer_time(lib_path: str, input_data, dev=tvm.cpu(), repeat=10):
     import time
-    print(tvm.runtime.load_module(lib_path))
     module = GraphModule(tvm.runtime.load_module(lib_path)['default'](dev))
 
     t = time.time()
