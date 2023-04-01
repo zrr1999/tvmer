@@ -37,6 +37,7 @@ def gen_library(mod, params, target="llvm", path: Path = ".tvmer/lib/compiled.so
 
 
 def load_module(lib_path, dev):
+    lib = tvm.runtime.load_module(lib_path)
     return GraphModule(tvm.runtime.load_module(lib_path)['default'](dev))
 
 
