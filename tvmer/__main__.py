@@ -11,7 +11,7 @@ from tvm import auto_scheduler
 from tvm import autotvm
 
 from tvmer.utils import load_onnx, gen_library, load_module, TunerStr
-from tvmer import utils
+import tvmer.utils as utils
 
 app = typer.Typer(rich_markup_mode="rich")
 
@@ -62,7 +62,7 @@ def tune(
         tuner: TunerStr = None,
 ):
     """
-    auto-tune a model (free template)
+    auto-tune a model
     """
     target = tvm.target.Target(target, host=target_host)
 

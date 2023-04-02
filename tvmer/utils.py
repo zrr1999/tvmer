@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Union
 from enum import Enum
 from tvm import autotvm
+
 if TYPE_CHECKING:
     Path = Union[Path, str]
 
@@ -51,7 +52,12 @@ def load_onnx(path: Path, batch_size: int = 1, dtype: str = "int8") -> tuple[IRM
     return mod, params
 
 
-def gen_library(mod, params, target: tvm.target.Target = "llvm", path: Path = ".tvmer/lib/compiled.so"):
+def gen_library(
+        mod: IRModule,
+        params: dict[str, tvm.nd.NDArray],
+        target: tvm.target.Target = "llvm",
+        path: Path = ".tvmer/lib/compiled.so"
+):
     with tvm.transform.PassContext(opt_level=3):
         lib = relay.build(mod, target=target, params=params)
     if not os.path.exists(os.path.split(path)[0]):
@@ -61,7 +67,7 @@ def gen_library(mod, params, target: tvm.target.Target = "llvm", path: Path = ".
     return lib
 
 
-def load_module(lib_path, dev):
+def load_module(lib_path: Path, dev) -> GraphModule:
     lib = tvm.runtime.load_module(lib_path)
     return GraphModule(lib['default'](dev))
 
@@ -77,8 +83,8 @@ def infer_time(lib_path: Path, input_data, dev=tvm.cpu(), repeat=10):
 
 
 def tune(
-        mod,
-        params,
+        mod: IRModule,
+        params: dict[str, tvm.nd.NDArray],
         target: tvm.target.Target = "llvm",
         num_measure_trials: int = 200
 ):
@@ -97,8 +103,8 @@ def tune(
 
 
 def tune_with_template(
-        mod,
-        params,
+        mod: IRModule,
+        params: dict[str, tvm.nd.NDArray],
         target: tvm.target.Target = "llvm",
         num_measure_trials: int = 200,
         tuner: TunerStr = TunerStr.xgb,
