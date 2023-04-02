@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+
 import tvm
 from tvm.contrib.graph_executor import GraphModule
 import numpy as np
@@ -48,7 +50,15 @@ def compile(
     target = tvm.target.Target(target, host=target_host)
 
     mod, params = load_onnx(path=model_path, batch_size=1, dtype=dtype)
-    gen_library(mod, params, target, export_path)
+    graph_json, lib, params = gen_library(mod, params, target, export_path)
+
+    if not os.path.exists(".tvmer/source"):
+        os.makedirs(".tvmer/source")
+    for i, imported_module in enumerate(lib.imported_modules):
+        with open(f".tvmer/source/imported_module{i}.dev", mode="w") as f:
+            f.write(imported_module.get_source())
+    with open(".tvmer/source/module.host", mode="w") as f:
+        f.write(lib.get_source())
 
 
 @app.command()
