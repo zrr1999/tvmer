@@ -2,7 +2,7 @@
 
 [project]
 name = "tvmer"
-version = "0.1.3"
+version = "0.1.4a2"
 description = ""
 authors = [
     {name = "zrr1999", email = "2742392377@qq.com"},

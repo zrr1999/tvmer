@@ -1,33 +1,19 @@
 from __future__ import annotations
 import tvm
-from tvmer.utils import load_onnx, gen_library, infer_time
+from tvmer.utils import load_onnx, gen_library, infer_time, tune
 from tvm.contrib.graph_executor import GraphModule
 from tvm import auto_scheduler
 
 
-def tune(mod, params, target):
-    tasks, task_weights = auto_scheduler.extract_tasks(mod["main"], params, target)
-
-    for idx, task in enumerate(tasks):
-        print("========== Task %d  (workload key: %s) ==========" % (idx, task.workload_key))
-        print(task.compute_dag)
-
-    tuner = auto_scheduler.TaskScheduler(tasks, task_weights)
-    tune_option = auto_scheduler.TuningOptions(
-        num_measure_trials=200,  # change this to 20000 to achieve the best performance
-        measure_callbacks=[auto_scheduler.RecordToFile("log_file")],
-    )
-    tuner.tune(tune_option)
-
 
 def main(target, dev, dtype="int8", lib_path: str = "lib/arm_cpu_default.so"):
     print("Extract tasks...")
-    mod, params = load_onnx(path="./model/yolov8s_detect.onnx", batch_size=1, dtype=dtype)
+    mod, params = load_onnx(path="./model/addtranspose.onnx", batch_size=1, dtype=dtype)
     tune(mod, params, target)
     lib = gen_library(mod, params, target, lib_path)
 
     module = GraphModule(lib['default'](dev))
-    module.set_input("479", np.zeros([1, 64, 8400]))
+    module.set_input("474", np.zeros([1, 69, 8400]))
     ftimer = module.module.time_evaluator("run", dev, number=2, repeat=10)
     prof_res = np.array(ftimer().results) * 1000  # multiply 1000 for converting to millisecond
     print(
@@ -67,13 +53,13 @@ if __name__ == '__main__':
     #     "-model=rk3588 -mattr=+neon"
     # )
 
-    rk3588_target = tvm.target.Target(
-        "llvm -keys=arm_cpu,cpu -device=arm_cpu "
-        "-model=rk3588 -mtriple=aarch64-linux-gnu -mattr=+neon"
-    )
+    # rk3588_target = tvm.target.Target(
+    #     "llvm -keys=arm_cpu,cpu -device=arm_cpu "
+    #     "-model=rk3588 -mtriple=aarch64-linux-gnu -mattr=+neon"
+    # )
 
-    # main("llvm", tvm.device("cpu"), "int8", "lib/llvm_i8.so")
-    main(rk3588_target, tvm.device("cpu"), "int8", "lib/arm_rk3588_i8.so")
+    main("llvm", tvm.device("cpu"), "int8", "lib/llvm_i8.so")
+    # main(rk3588_target, tvm.device("cpu"), "int8", "lib/arm_rk3588_i8.so")
 
     # target = tvm.target.Target(tvm.target.mali(model='rk3588'), host=tvm.target.arm_cpu(model='rk3588'))
     # dev = tvm.device("opencl", 0)
