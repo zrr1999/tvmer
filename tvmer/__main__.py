@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-
 import tvm
 from tvm.contrib.graph_executor import GraphModule
 import numpy as np
@@ -11,6 +10,7 @@ from rich.progress import Progress, ProgressBar
 from pathlib import Path
 from tvm import auto_scheduler
 from tvm import autotvm
+from typing import List
 
 from tvmer.utils import load_onnx, gen_library, load_module, TunerStr
 import tvmer.utils as utils
@@ -19,7 +19,7 @@ app = typer.Typer(rich_markup_mode="rich")
 
 
 @app.command()
-def run(lib_path: Path, dev: str, repeat: int = 10):
+def run(lib_path: Path, data_path: Path, dev: str = "cpu"):
     """
     run a compiled module
     """
@@ -37,20 +37,37 @@ def run(lib_path: Path, dev: str, repeat: int = 10):
 
 
 @app.command()
+def test(lib_paths: List[Path], dev: str = "cpu", repeat: int = 10):
+    """
+    test a compiled module or some compiled modules
+    """
+    dev = tvm.device(dev)
+    for lib_path in lib_paths:
+        module = load_module(lib_path, dev)
+        ftimer = module.module.time_evaluator("run", dev, number=10, repeat=repeat)
+        prof_res = np.array(ftimer().results) * 1000
+        rich.print(
+            f"mean: {np.mean(prof_res):.2f} ms, std: {np.std(prof_res):.2f} ms"
+        )
+
+
+@app.command()
 def compile(
         model_path: Path,
         target: str = "llvm",
         target_host: str = None,
-        export_path: Path = ".tvmer/lib/default.so",
+        export_path: Path = None,
         dtype="float32"
 ):
     """
     compile a model
     """
-    target = tvm.target.Target(target, host=target_host)
+    if export_path is None:
+        export_path = f".tvmer/lib/{target}_{target_host}_{os.path.basename(model_path)}.so"
 
+    target = tvm.target.Target(target, host=target_host)
     mod, params = load_onnx(path=model_path, batch_size=1, dtype=dtype)
-    graph_json, lib, params = gen_library(mod, params, target, export_path)
+    lib = gen_library(mod, params, target, export_path).get_lib()
 
     if not os.path.exists(".tvmer/source"):
         os.makedirs(".tvmer/source")
@@ -66,7 +83,7 @@ def tune(
         model_path: Path,
         target: str = "llvm",
         target_host: str = None,
-        export_path: Path = ".tvmer/lib/tuned_default.so",
+        export_path: Path = None,
         dtype="float32",
         num_measure_trials: int = 200,
         tuner: TunerStr = None,
@@ -74,6 +91,9 @@ def tune(
     """
     auto-tune a model
     """
+    if export_path is None:
+        prefix = f"tuned_{tuner}" if tuner else "tuned"
+        export_path = f".tvmer/lib/{prefix}_{target}_{target_host}_{os.path.basename(model_path)}.so"
     target = tvm.target.Target(target, host=target_host)
 
     print("Extract tasks...")

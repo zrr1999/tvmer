@@ -20,6 +20,7 @@ if TYPE_CHECKING:
 
 class TunerStr(str, Enum):
     xgb = "xgb"
+    ga = "ga"
     random = "random"
     gridsearch = "gridsearch"
 
